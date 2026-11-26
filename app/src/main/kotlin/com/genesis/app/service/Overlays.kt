@@ -29,7 +29,7 @@ internal class Overlays(private val context: Context) {
 
     /** Shows "GENESIS is in control" with a stop button. [onOutsideTouch] fires when the user touches anywhere else. */
     @SuppressLint("ClickableViewAccessibility")
-    fun showStopBar(onStop: () -> Unit, onOutsideTouch: () -> Unit) {
+    fun showStopBar(onStop: () -> Unit, onOutsideTouch: (() -> Unit)?, label: String = "GENESIS يتحكم الآن") {
         if (stopBar != null) return
         val row = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -39,7 +39,7 @@ internal class Overlays(private val context: Context) {
             layoutDirection = View.LAYOUT_DIRECTION_RTL
         }
         row.addView(TextView(context).apply {
-            text = "GENESIS يتحكم الآن"
+            text = label
             setTextColor(Color.WHITE)
             textSize = 13f
         })
@@ -53,13 +53,13 @@ internal class Overlays(private val context: Context) {
             setOnClickListener { onStop() }
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, dp(36)).apply { marginStart = dp(10) })
         row.setOnTouchListener { _, ev ->
-            if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) onOutsideTouch()
+            if (ev.actionMasked == MotionEvent.ACTION_OUTSIDE) onOutsideTouch?.invoke()
             false
         }
         val lp = baseParams(WindowManager.LayoutParams.WRAP_CONTENT).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = dp(28)
-            flags = flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+            if (onOutsideTouch != null) flags = flags or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
         }
         wm.addView(row, lp)
         stopBar = row

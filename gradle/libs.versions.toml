@@ -12,6 +12,7 @@ androidxTestRunner = "1.7.0"
 androidxTestCore = "1.7.0"
 androidxTestExtJunit = "1.3.0"
 anthropicJava = "3.3.0"
+shizuku = "13.1.5"
 minSdk = "26"
 targetSdk = "36"
 compileSdk = "37"
@@ -24,6 +25,8 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 junit = { module = "junit:junit", version.ref = "junit" }
 anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropicJava" }
+shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
+shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
 
 # Gradle plugins, put on the root buildscript classpath (see build.gradle.kts).
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }

@@ -58,13 +58,19 @@ class MutableStopSignal : StopSignal {
     @Volatile override var reason: String? = null
         private set
 
+    /** System.nanoTime() of the first stop request, to measure how fast a stop takes effect. */
+    @Volatile var requestedAtNanos: Long = 0L
+        private set
+
     fun stop(why: String) {
+        if (!stopRequested) requestedAtNanos = System.nanoTime()
         reason = why
         stopRequested = true
     }
 
     fun reset() {
         stopRequested = false
+        requestedAtNanos = 0L
         reason = null
     }
 }

@@ -105,6 +105,8 @@ private fun PrototypeScreen() {
         Text("GENESIS · النموذج التجريبي", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Text("إثبات إمكانية تقنية فقط، وليس للاستخدام التجاري. كل إرسال يطلب موافقتك. للإيقاف: زر «إيقاف» العائم، أو مفتاح خفض الصوت، أو لمس الشاشة.", color = Muted, fontSize = 13.sp)
 
+        HiddenDisplaySection()
+
         Section("1. خدمة إمكانية الوصول") {
             Text(if (serviceOn) "✅ مفعّلة" else "⛔ غير مفعّلة", color = Color.White)
             if (!serviceOn) {

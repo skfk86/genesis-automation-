@@ -12,6 +12,9 @@ import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.view.accessibility.AccessibilityWindowInfo
+import android.view.Display
+import android.os.Build
 import com.genesis.automation.ui.ApprovalDecision
 import com.genesis.automation.ui.ApprovalGate
 import com.genesis.automation.ui.ApprovalRequest
@@ -141,9 +144,7 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
 
     private suspend fun tap(target: UiElement): OpResult {
         val node = findLive(target) ?: return OpResult(false, "element no longer on screen")
-        var n: AccessibilityNodeInfo? = node
-        while (n != null && !n.isClickable) n = n.parent
-        if (n != null && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)) return OpResult(true, "click action")
+        if (NodeMapper.clickNodeOrAncestor(node)) return OpResult(true, "click action")
         val b = target.bounds
         return OpResult(gestureTap(b.centerX.toFloat(), b.centerY.toFloat()), "gesture tap")
     }
@@ -173,39 +174,68 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
             .getOrElse { OpResult(false, it.message ?: "launch failed") }
     }
 
-    /** Finds the live node for an element from an earlier snapshot: same id, class and bounds, else the smallest node at its centre. */
-    private fun findLive(target: UiElement): AccessibilityNodeInfo? {
-        val root = rootInActiveWindow ?: return null
-        var exact: AccessibilityNodeInfo? = null
-        var sameBounds: AccessibilityNodeInfo? = null
-        var atCenter: AccessibilityNodeInfo? = null
-        var atCenterArea = Long.MAX_VALUE
-        NodeMapper.walk(root, 0) { node, _ ->
-            val b = NodeMapper.boundsOf(node)
-            if (b == target.bounds) {
-                if (node.viewIdResourceName == target.resourceId && node.className?.toString() == target.className) exact = exact ?: node
-                sameBounds = sameBounds ?: node
-            }
-            if (b.left <= target.bounds.centerX && target.bounds.centerX <= b.right && b.top <= target.bounds.centerY && target.bounds.centerY <= b.bottom) {
-                val area = b.width.toLong() * b.height
-                if (area in 1 until atCenterArea && (target.editable == node.isEditable)) { atCenter = node; atCenterArea = area }
-            }
-        }
-        return exact ?: sameBounds ?: atCenter
+    private fun findLive(target: UiElement): AccessibilityNodeInfo? =
+        rootInActiveWindow?.let { NodeMapper.findLive(it, target) }
+
+    private fun firstScrollable(): AccessibilityNodeInfo? =
+        rootInActiveWindow?.let { NodeMapper.firstScrollable(it) }
+
+    // ---- hidden display support (Phase 3 proof) ----
+
+    /** Windows the accessibility service sees on [displayId]. Needs Android 11 for displays other than the main one. */
+    fun windowsOn(displayId: Int): List<AccessibilityWindowInfo> =
+        if (Build.VERSION.SDK_INT >= 30) windowsOnAllDisplays.get(displayId).orEmpty()
+        else if (displayId == Display.DEFAULT_DISPLAY) windows.orEmpty() else emptyList()
+
+    /** Display ids that currently have windows the service can see. */
+    fun visibleDisplayIds(): List<Int> {
+        if (Build.VERSION.SDK_INT < 30) return listOf(Display.DEFAULT_DISPLAY)
+        val all = windowsOnAllDisplays
+        return (0 until all.size()).map { all.keyAt(it) }
     }
 
-    private fun firstScrollable(): AccessibilityNodeInfo? {
-        val root = rootInActiveWindow ?: return null
-        var best: AccessibilityNodeInfo? = null
-        var bestArea = 0L
-        NodeMapper.walk(root, 0) { n, _ ->
-            if (n.isScrollable) {
-                val b = NodeMapper.boundsOf(n)
-                val a = b.width.toLong() * b.height
-                if (a > bestArea) { best = n; bestArea = a }
+    /** Root of the top application window on [displayId], or null when nothing readable is there. */
+    fun rootOnDisplay(displayId: Int): AccessibilityNodeInfo? =
+        windowsOn(displayId)
+            .filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+            .sortedByDescending { it.layer }
+            .firstNotNullOfOrNull { it.root }
+
+    /** What the person sees on the main screen: top app and whether a keyboard is showing. */
+    fun mainDisplayState(): MainDisplayState {
+        val ws = windowsOn(Display.DEFAULT_DISPLAY)
+        val top = ws.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.maxByOrNull { it.layer }
+        return MainDisplayState(
+            topPackage = top?.root?.packageName?.toString(),
+            imeVisible = ws.any { it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD },
+            windowCount = ws.size,
+        )
+    }
+
+    /** A gesture on a specific display (Android 11+). Touches nothing on the main screen. */
+    suspend fun gestureOnDisplay(displayId: Int, path: Path, durationMs: Long): Boolean {
+        if (Build.VERSION.SDK_INT < 30) return false
+        return withContext(Dispatchers.Main) {
+            suspendCancellableCoroutine { cont ->
+                val g = GestureDescription.Builder().setDisplayId(displayId)
+                    .addStroke(GestureDescription.StrokeDescription(path, 0, durationMs)).build()
+                val sent = dispatchGesture(g, object : GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) { if (cont.isActive) cont.resume(true) }
+                    override fun onCancelled(gestureDescription: GestureDescription?) { if (cont.isActive) cont.resume(false) }
+                }, null)
+                if (!sent && cont.isActive) cont.resume(false)
             }
         }
-        return best
+    }
+
+    /**
+     * Starts a hidden-display task. Only a small stop button is shown; touching the screen does
+     * NOT stop the task, because the person is meant to keep using the phone.
+     */
+    suspend fun beginHiddenTask() = withContext(Dispatchers.Main) {
+        stopSignal.reset()
+        taskActive = true
+        overlays.showStopBar(onStop = { stopSignal.stop("stop button") }, onOutsideTouch = null, label = "GENESIS يعمل في الخلفية")
     }
 
     private suspend fun gestureTap(x: Float, y: Float): Boolean =
@@ -229,6 +259,8 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
         delay(100)
         return ok
     }
+
+    data class MainDisplayState(val topPackage: String?, val imeVisible: Boolean, val windowCount: Int)
 
     companion object {
         private const val TAG = "GenesisE2E"

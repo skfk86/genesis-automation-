@@ -42,6 +42,47 @@ internal object NodeMapper {
         }
     }
 
+    /** Finds the live node for an element from an earlier snapshot: same id, class and bounds, else the smallest node at its centre. */
+    fun findLive(root: AccessibilityNodeInfo, target: UiElement): AccessibilityNodeInfo? {
+        var exact: AccessibilityNodeInfo? = null
+        var sameBounds: AccessibilityNodeInfo? = null
+        var atCenter: AccessibilityNodeInfo? = null
+        var atCenterArea = Long.MAX_VALUE
+        walk(root, 0) { node, _ ->
+            val b = boundsOf(node)
+            if (b == target.bounds) {
+                if (node.viewIdResourceName == target.resourceId && node.className?.toString() == target.className) exact = exact ?: node
+                sameBounds = sameBounds ?: node
+            }
+            if (b.left <= target.bounds.centerX && target.bounds.centerX <= b.right && b.top <= target.bounds.centerY && target.bounds.centerY <= b.bottom) {
+                val area = b.width.toLong() * b.height
+                if (area in 1 until atCenterArea && (target.editable == node.isEditable)) { atCenter = node; atCenterArea = area }
+            }
+        }
+        return exact ?: sameBounds ?: atCenter
+    }
+
+    /** The largest scrollable node under [root]. */
+    fun firstScrollable(root: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var best: AccessibilityNodeInfo? = null
+        var bestArea = 0L
+        walk(root, 0) { n, _ ->
+            if (n.isScrollable) {
+                val b = boundsOf(n)
+                val a = b.width.toLong() * b.height
+                if (a > bestArea) { best = n; bestArea = a }
+            }
+        }
+        return best
+    }
+
+    /** Clicks the node or its nearest clickable ancestor. */
+    fun clickNodeOrAncestor(node: AccessibilityNodeInfo): Boolean {
+        var n: AccessibilityNodeInfo? = node
+        while (n != null && !n.isClickable) n = n.parent
+        return n != null && n.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
     fun boundsOf(node: AccessibilityNodeInfo): Bounds {
         val r = Rect()
         node.getBoundsInScreen(r)
