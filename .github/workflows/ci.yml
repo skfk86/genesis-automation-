@@ -3,7 +3,6 @@ name: CI
 on:
   push:
     branches: [main, "claude/**"]
-  pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -107,3 +106,28 @@ jobs:
             app/build/outputs/androidTest-results/
             e2e-logcat.txt
           if-no-files-found: ignore
+
+  publish-prototype:
+    # After the emulator tests pass, publish the prototype APK as a pre-release so it can be
+    # downloaded directly on a phone. Debug-signed; for testing only.
+    runs-on: ubuntu-latest
+    needs: [build, emulator]
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: genesis-prototype-apk
+          path: apk
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          cp apk/*.apk genesis-prototype.apk
+          sha=$(sha256sum genesis-prototype.apk | cut -d' ' -f1)
+          gh release delete prototype --yes --cleanup-tag || true
+          gh release create prototype genesis-prototype.apk --prerelease --target "$GITHUB_SHA" \
+            --title "GENESIS prototype (testing only)" \
+            --notes "Phase 2 prototype for on-device testing. Debug-signed, not for distribution. Commit $GITHUB_SHA. SHA-256: $sha"

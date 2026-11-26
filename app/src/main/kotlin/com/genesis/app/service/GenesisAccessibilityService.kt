@@ -8,6 +8,7 @@ import android.content.Intent
 import android.graphics.Path
 import android.os.Bundle
 import android.os.SystemClock
+import android.util.Log
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -45,6 +46,7 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
 
     /** While our own gesture plays, touches are ours, not the user's. */
     @Volatile private var ownGestureUntil = 0L
+    @Volatile private var lastOwnActionAt = 0L
 
     private lateinit var overlays: Overlays
 
@@ -83,9 +85,10 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
         overlays.showStopBar(
             onStop = { stopSignal.stop("stop button") },
             onOutsideTouch = {
-                if (taskActive && !overlays.approvalVisible && SystemClock.uptimeMillis() > ownGestureUntil) {
-                    stopSignal.stop("user touched the screen")
-                }
+                val now = SystemClock.uptimeMillis()
+                val ignored = !taskActive || overlays.approvalVisible || now < ownGestureUntil
+                Log.i(TAG, "outside touch: ignored=$ignored sinceOwnAction=${now - lastOwnActionAt}ms")
+                if (!ignored) stopSignal.stop("user touched the screen")
             },
         )
     }
@@ -118,7 +121,17 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
         return NodeMapper.snapshot(root, dm.widthPixels, dm.heightPixels, System.currentTimeMillis())
     }
 
-    override suspend fun perform(op: UiOp): OpResult = when (op) {
+    override suspend fun perform(op: UiOp): OpResult {
+        // Our own actions can make the system emit touch-like events (keyboard, focus, clicks);
+        // touches shortly after them are not treated as the user taking over.
+        lastOwnActionAt = SystemClock.uptimeMillis()
+        ownGestureUntil = maxOf(ownGestureUntil, lastOwnActionAt + OWN_ACTION_GRACE_MS)
+        val r = performOp(op)
+        ownGestureUntil = maxOf(ownGestureUntil, SystemClock.uptimeMillis() + OWN_ACTION_GRACE_MS)
+        return r
+    }
+
+    private suspend fun performOp(op: UiOp): OpResult = when (op) {
         is UiOp.Tap -> tap(op.target)
         is UiOp.SetText -> setText(op.target, op.text)
         is UiOp.Scroll -> scroll(op.container, op.direction)
@@ -202,7 +215,7 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
         gesture(Path().apply { moveTo(x1, y1); lineTo(x2, y2) }, ms)
 
     private suspend fun gesture(path: Path, durationMs: Long): Boolean {
-        ownGestureUntil = SystemClock.uptimeMillis() + durationMs + 400
+        ownGestureUntil = maxOf(ownGestureUntil, SystemClock.uptimeMillis() + durationMs + OWN_ACTION_GRACE_MS)
         val ok = withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { cont ->
                 val g = GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(path, 0, durationMs)).build()
@@ -218,6 +231,9 @@ class GenesisAccessibilityService : AccessibilityService(), UiBackend {
     }
 
     companion object {
+        private const val TAG = "GenesisE2E"
+        private const val OWN_ACTION_GRACE_MS = 1500L
+
         @Volatile var instance: GenesisAccessibilityService? = null
             private set
     }
