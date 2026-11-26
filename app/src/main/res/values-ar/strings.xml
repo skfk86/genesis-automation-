@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GENESIS</string>
+    <string name="a11y_label">GENESIS (نموذج تجريبي)</string>
+    <string name="a11y_description">نموذج GENESIS التجريبي: يقرأ الشاشة وينقر ويكتب ويمرّر في التطبيقات التي تسمح بها فقط، وفقط أثناء اختبار بدأته أنت. كل إرسال يطلب موافقتك أولاً. أوقفه في أي لحظة بزر الإيقاف العائم أو بمفتاح خفض الصوت.</string>
+</resources>

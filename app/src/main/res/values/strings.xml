@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GENESIS</string>
+    <string name="a11y_label">GENESIS (prototype)</string>
+    <string name="a11y_description">GENESIS prototype: reads the screen and taps, types and scrolls in the apps you allow, only while a test you started is running. Every send asks you first. Stop any time with the floating stop button or the volume-down key.</string>
+</resources>
