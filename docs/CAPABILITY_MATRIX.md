@@ -31,7 +31,7 @@
 | التقويم: إضافة/قراءة مباشرة | مزوّد `CalendarContract` | `READ/WRITE_CALENDAR` | 8.0+ | صلاحية وقت التشغيل | متوافق | نعم | نعم | قراءة الحدث بعد إضافته (تحقق حقيقي) | ✅ |
 | أوامر صوتية | `SpeechRecognizer` ([المرجع](https://developer.android.com/reference/android/speech/SpeechRecognizer)) | `RECORD_AUDIO` | 8.0+ | جودة العربية تعتمد على خدمة التعرف في الجهاز (يحتاج تحقق) | متوافق | أمامية | نعم | — | 🟡 |
 | تخزين المفاتيح بأمان | Android Keystore ([المرجع](https://developer.android.com/privacy-and-security/keystore)) | لا شيء | 8.0+ | — | متوافق | — | — | — | ✅ |
-| التحكم في واجهات التطبيقات الأخرى بالذكاء الاصطناعي | AccessibilityService | — | — | — | **ممنوع منذ 28 يناير 2026** ([المرجع](https://support.google.com/googleplay/android-developer/answer/10964491)) | — | — | — | ⛔ البديل: Intents وروابط وواجهات رسمية والمستخدم يكمل الخطوة الأخيرة |
+| التحكم في واجهات التطبيقات الأخرى بالذكاء الاصطناعي | AccessibilityService | — | — | — | **ممنوع في سياسة Play الحالية** (لا يوجد تاريخ سريان رسمي صريح؛ انظر مراجعة السياسات) ([المرجع](https://support.google.com/googleplay/android-developer/answer/10964491)) | — | — | — | ⛔ البديل: Intents وروابط وواجهات رسمية والمستخدم يكمل الخطوة الأخيرة |
 | قراءة بيانات تطبيق آخر الخاصة (قاعدة بيانات WhatsApp مثلاً) | — | — | — | عزل التطبيقات في Android يمنع ذلك | — | — | — | — | ⛔ البديل: الإشعارات أو الواجهات الرسمية |
 | إرسال SMS مباشرة | `SEND_SMS` | — | — | مقيّدة لتطبيق الرسائل الافتراضي ([المرجع](https://support.google.com/googleplay/android-developer/answer/10208820)) | غير متوافق | — | — | — | ⛔ البديل: مسودة `smsto:` والمستخدم يرسل |
 
