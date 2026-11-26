@@ -20,4 +20,7 @@ if [[ -n "${TEST_FILTER:-}" ]]; then
 fi
 ./gradlew :app:connectedDebugAndroidTest -Pgenesis.requireAndroid=true "${args[@]}" || status=$?
 adb logcat -d -s GenesisE2E:I GenesisHiddenE2E:I GenesisHidden:I TestRunner:I AndroidRuntime:E > "${LOG_NAME:-e2e-logcat.txt}" || true
+# Print the hidden display results into the job log, so they can be read without the artifact.
+grep -E "GenesisHiddenE2E.*(PASS|FAIL|SKIPPED|PHONE_CHECK|hidden_api_policy)" "${LOG_NAME:-e2e-logcat.txt}" | sed 's/^.*GenesisHiddenE2E: //' || true
+grep -E "GenesisHiddenE2E.*\"(host\.|appCpuMs|appPssKb|durationMs|actionPaths|mainTopAtStart)" "${LOG_NAME:-e2e-logcat.txt}" | sed 's/^.*GenesisHiddenE2E: //' || true
 exit $status
